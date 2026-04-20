@@ -1,0 +1,23 @@
+# 背景
+figure.facecolor: white
+axes.facecolor: white
+
+# 网格
+axes.grid: True
+grid.color: #E6E6E6
+grid.linestyle: -
+grid.linewidth: 1
+
+# 边框
+axes.edgecolor: #CCCCCC
+axes.spines.top: False
+axes.spines.right: False
+
+# 字体
+font.size: 12
+xtick.color: #444444
+ytick.color: #444444
+axes.labelcolor: #444444
+
+# 线条
+lines.linewidth: 1.5

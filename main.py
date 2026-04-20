@@ -1,14 +1,16 @@
 import yfinance as yf
 import pandas as pd
 from strategy.base import backtest_always_half_position
+from strategy.base import backtest_weekly_dca
+from plot.plot import plot_graph
 
 # ====== 可调参数 ======
-# 初始资金（单位：元）
-INITIAL_CASH = 1_000_000.0
+# 初始资金（单位：$）
+INITIAL_CASH = 1_0000.0
 # 永远半仓：始终50%资金持仓，50%现金
-TARGET_WEIGHT = 0.5
+TARGET_WEIGHT = 1
 # 回测标的与区间
-SYMBOL = "AAPL"
+SYMBOL = "AAPL"  # Apple股票代码
 START_DATE = "2020-01-01"
 END_DATE = "2026-04-19"
 
@@ -32,20 +34,21 @@ def summarize_result(bt: pd.DataFrame) -> dict:
         "final_asset": float(bt["total_asset"].iloc[-1]),
         "cum_return_pct": float((bt["cum_ret"].iloc[-1] - 1.0) * 100),
         "max_drawdown_pct": float(drawdown.min() * 100),
+        "trade_count": int(bt["trade_count"].iloc[-1]),
     }
 
 
-def main() -> None:
+def simulate_ma_strategy() -> None:
     # 下载行情
     df = fetch_price_history(SYMBOL, START_DATE, END_DATE)
 
     # 计算移动平均线
-    df["ma10"] = df["Close"].rolling(10).mean()
-    df["ma200"] = df["Close"].rolling(200).mean()
+    df["ma50"] = df["Close"].rolling(10).mean()
+    df["ma200"] = df["Close"].rolling(50).mean()
 
     print("=== 行情数据预览 ===")
     # 显示最近15天的收盘价和均线，验证数据正确性
-    print(df[["Close", "ma10", "ma200"]].tail(30))
+    print(df[["Close", "ma50", "ma200"]].tail(30))
 
     # 计算每日收益率
     df["ret"] = df["Close"].pct_change()
@@ -57,38 +60,64 @@ def main() -> None:
     # 生成交易信号
     df["signal"] = 0
 
-    # 当ma10上穿ma200时，产生买入信号（1），否则为0
-    df.loc[df["ma10"] > df["ma200"], "signal"] = 1
-    # 当ma10下穿ma200时，产生卖出信号（-1），否则为0
-    df.loc[df["ma10"] < df["ma200"], "signal"] = -1
+    # 金叉：前一天 ma50 < ma200，今天 ma50 > ma200，产生买入信号（1）
+    df.loc[
+        (df["ma50"].shift(1) <= df["ma200"].shift(1)) &
+        (df["ma50"] > df["ma200"]),
+        "signal",
+    ] = 1
+    # 死叉：前一天 ma50 > ma200，今天 ma50 < ma200，产生卖出信号（-1）
+    df.loc[
+        (df["ma50"].shift(1) >= df["ma200"].shift(1)) &
+        (df["ma50"] < df["ma200"]),
+        "signal",
+    ] = -1
 
-    backtest_always_half_position(df,
-                                  initial_cash=INITIAL_CASH,
-                                  target_weight=TARGET_WEIGHT)
+    print("=== 交易信号预览 ===")
+    # 显示最近15天的收盘价、均线和交易信号
+    print(df[["Close", "ma50", "ma200", "signal"]].tail(30))
 
-    # df["position"] = df["signal"].shift(1).fillna(0)
-    # # 计算策略收益率
-    # df["ret"] = df["Close"].pct_change()
-    # # 策略收益率 = 持仓 * 价格变动
-    # df["strategy_ret"] = df["position"] * df["ret"]
-    # # 计算累积收益率
-    # cum_ret = (1 + df["strategy_ret"]).cumprod()
+    # 回测策略
+    df = backtest_always_half_position(df,
+                                       initial_cash=INITIAL_CASH,
+                                       target_weight=TARGET_WEIGHT)
+    stats = summarize_result(df)
 
-    # print(cum_ret.tail())
+    # 输出回测结果
+    print("=== 回测结果统计 ===")
+    print(df[["cash", "shares", "total_asset", "signal"]].tail(30))
 
-    # # 输出结果
-    # print("=== 回测结果（永远半仓）===")
-    # print(f"标的: {SYMBOL}")
-    # print(f"区间: {START_DATE} ~ {END_DATE}")
-    # print(f"起始资金: {INITIAL_CASH:.2f}")
-    # print(f"目标仓位: {TARGET_WEIGHT:.0%}")
-    # print(f"最终资产: {stats['final_asset']:.2f}")
-    # print(f"累计收益: {stats['cum_return_pct']:.2f}%")
-    # print(f"最大回撤: {stats['max_drawdown_pct']:.2f}%")
-    # print("\n最近5天账户明细:")
-    # print(bt[["Close", "cash", "stock_value", "total_asset",
-    #           "position_ratio"]].tail())
+    # 输出结果
+    print("=== 回测结果（永远半仓）===")
+    print(f"标的: {SYMBOL}")
+    print(f"区间: {START_DATE} ~ {END_DATE}")
+    print(f"起始资金: {INITIAL_CASH:.2f}")
+    print(f"目标仓位: {TARGET_WEIGHT:.0%}")
+    print(f"最终资产: {stats['final_asset']:.2f}")
+    print(f"累计收益: {stats['cum_return_pct']:.2f}%")
+    print(f"最大回撤: {stats['max_drawdown_pct']:.2f}%")
+    print(f"交易次数: {stats['trade_count']}")
+
+
+def simulate_dca_strategy() -> None:
+    # 下载行情
+    df = fetch_price_history(SYMBOL, START_DATE, END_DATE)
+
+    # 回测策略
+    df = backtest_weekly_dca(df, weekly_amount=100.0, initial_cash=INITIAL_CASH)
+    print(df[["cash", "shares", "total_asset"]].tail(30))
+
+    # 输出结果
+    print("=== 回测结果（定投）===")
+    print(f"标的: {SYMBOL}")
+    print(f"区间: {START_DATE} ~ {END_DATE}")
+    print(f"起始资金: {INITIAL_CASH:.2f}")
+    print(f"最终资产: {df['total_asset'].iloc[-1]:.2f}")
+    print(f"累计收益: {df['cum_ret'].iloc[-1] * 100:.2f}%")
+    print(f"最大回撤: {df['max_drawdown'].iloc[-1] * 100:.2f}%")
+    print(f"交易次数: {df['trade_count'].iloc[-1]:.2f}")
 
 
 if __name__ == "__main__":
-    main()
+    simulate_ma_strategy()
+    # simulate_dca_strategy()
