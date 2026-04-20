@@ -1,0 +1,73 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+pytest_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# VS Code
+.vscode/
+
+# macOS
+.DS_Store
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# Logs
+*.log
+
+# Environment variables
+.env
+.env.*
+
+# PyCharm
+.idea/
+
+# mypy / type check
+.mypy_cache/
+
+# Ruff / lint
+.ruff_cache/
+
+# Pyre
+.pyre/
+
+# Coverage reports
+coverage.xml
+
+# SQLite database (common in dev)
+*.sqlite3
+
+# Temporary files
+*.swp
+*.swo
+*~
